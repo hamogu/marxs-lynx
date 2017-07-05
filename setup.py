@@ -32,7 +32,7 @@ metadata = dict(conf.items('metadata'))
 
 PACKAGENAME = metadata.get('package_name', 'marxs-lynx')
 DESCRIPTION = metadata.get('description', 'Lynx X-ray mission simulator for MARXS')
-AUTHOR = metadata.get('author', 'Hans Mortiz Guenther / MIT')
+AUTHOR = metadata.get('author', 'Hans Moritz Guenther / MIT')
 AUTHOR_EMAIL = metadata.get('author_email', '')
 LICENSE = metadata.get('license', 'unknown')
 URL = metadata.get('url', 'marxs-lynx.readthedocs.org')

@@ -6,7 +6,7 @@ import transforms3d
 
 import marxs
 from marxs import optics, simulator, source, design
-from marxs.design import design_tilted_torus, RowlandTorus
+from marxs.design.rowland import design_tilted_torus, RowlandTorus
 
 from . import ralfgrating
 
