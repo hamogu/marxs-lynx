@@ -33,7 +33,7 @@ mirr = optics.FlatStack(position=[9000, 0, 0], zoom=[20, 600, 600],
 
 
 # CAT grating
-order_selector = ralfgrating.InterpolateRalfTable(get_pkg_data_filename('efficiency.csv'))
+order_selector = ralfgrating.InterpolateRalfTable(get_pkg_data_filename('gratings/efficiency.csv'))
 
 # Define L1, L2 blockage as simple filters due to geometric area
 # L1 support: blocks 18 %
