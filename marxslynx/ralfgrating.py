@@ -1,6 +1,7 @@
 import numpy as np
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
+from astropy.utils.data import get_pkg_data_filename
 from marxs.base import SimulationSequenceElement
 from marxs.optics import GlobalEnergyFilter
 
@@ -32,14 +33,12 @@ class InterpolateRalfTable(object):
 
     Parameters
     ----------
-    filename : string
-        path and name of data file
     k : int
         Degree of spline. See `scipy.interpolate.RectBivariateSpline`.
     '''
 
     def __init__(self, k=3):
-        wave, theta, names, orders = load_table2d('gratings', 'efficiency')
+        wave, theta, names, orders = load_table2d(get_pkg_data_filename('data/gratings/efficiency.csv'))
         theta = theta.to(u.rad)
         # Order is int, we will never interpolate about order,
         # thus, we'll just have

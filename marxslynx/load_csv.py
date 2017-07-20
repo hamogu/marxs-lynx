@@ -4,7 +4,7 @@ from astropy import log
 from . import __version__, __githash__
 
 
-hash_display = False
+hash_displayed = False
 
 
 class DataFileFormatException(Exception):
