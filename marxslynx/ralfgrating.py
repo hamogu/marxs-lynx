@@ -38,7 +38,7 @@ class InterpolateRalfTable(object):
     '''
 
     def __init__(self, k=3):
-        wave, theta, names, orders = load_table2d(get_pkg_data_filename('data/gratings/efficiency.csv'))
+        wave, theta, names, orders = load_table2d(get_pkg_data_filename('data/gratings/Si_efficiency.csv'))
         theta = theta.to(u.rad)
         # Order is int, we will never interpolate about order,
         # thus, we'll just have

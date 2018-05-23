@@ -21,7 +21,7 @@ filterqe = optics.GlobalEnergyFilter(filterfunc=interp1d(filterdata['energy'] / 
                                                          filterdata['Total_throughput'])
 
 # Blaze angle in degrees
-blazeang = 1.91
+blazeang = 1.6
 
 
 alpha = np.deg2rad(2.2 * blazeang)
@@ -34,9 +34,9 @@ rowland = RowlandTorus(R, r, pos4d=pos4d)
 order_selector = ralfgrating.InterpolateRalfTable()
 
 # Define L1, L2 blockage as simple filters due to geometric area
-# L1 support: blocks 18 %
-# L2 support: blocks 19 %
-catsupport = optics.GlobalEnergyFilter(filterfunc=lambda e: 0.81 * 0.82)
+# L1 support: blocks 10 % - better than current 18 %
+# L2 support: blocks 10 % - better than current 19 %
+catsupport = optics.GlobalEnergyFilter(filterfunc=lambda e: 0.9 * 0.9)
 
 
 class CATSupportbars(marxs.base.SimulationSequenceElement):
