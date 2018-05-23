@@ -1,34 +1,33 @@
 import copy
 from astropy.coordinates import SkyCoord
+from astropy.table import Table
+from astropy.utils.data import get_pkg_data_filename
 import numpy as np
 import transforms3d
+from scipy.interpolate import interp1d
 
 import marxs
 from marxs import optics, simulator, source, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
 
 from . import ralfgrating
+from mirror import MetaShell
+
+from marxs import optics
+from marxs.simulator import Sequence
+
+filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'))
+filterqe = optics.GlobalEnergyFilter(filterfunc=interp1d(filterdata['energy'] / 1000,
+                                                         filterdata['Total_throughput'])
 
 # Blaze angle in degrees
 blazeang = 1.91
+
 
 alpha = np.deg2rad(2.2 * blazeang)
 beta = np.deg2rad(4.4 * blazeang)
 R, r, pos4d = design_tilted_torus(8.6e3, alpha, beta)
 rowland = RowlandTorus(R, r, pos4d=pos4d)
-
-aper = optics.CircleAperture(position=[9500, 0, 0],
-                             zoom=[1, 600, 600],
-                             r_inner=300)
-
-# 0.5 arcsec mirrors
-scatter = np.deg2rad(0.5 / 3600.)
-mirr = optics.FlatStack(position=[9000, 0, 0], zoom=[20, 600, 600],
-                        elements=[optics.PerfectLens,
-                                  optics.RadialMirrorScatter],
-                        keywords=[{'focallength': 9000},
-                                  {'inplanescatter': scatter,
-                                   'perpplanescatter': scatter}])
 
 
 # CAT grating
@@ -55,22 +54,16 @@ catsupportbars = CATSupportbars()
 blazemat = transforms3d.axangles.axangle2mat(np.array([0, 0, 1]),
                                              np.deg2rad(-blazeang))
 
-gratinggrid = {'rowland': rowland, 'd_element': 55., 'x_range': [8e3, 9e3],
+gratinggrid = {'rowland': rowland, 'd_element': 72.,
+               'x_range': [7e3, 9e3],
+               'radius': [300, 600],
+               'normal_spec': np.array([0, 0, 0, 1]),
                'elem_class': optics.CATGrating,
                'elem_args': {'d': 2e-4, 'zoom': [1., 25., 25.],
                              'orientation': blazemat,
                              'order_selector': order_selector}}
 
-gas = design.rowland.GratingArrayStructure(rowland=rowland,
-                                           d_element=60,
-                                           x_range=[7000, 9000],
-                                           radius=[300, 600],
-                                           elem_class=optics.CATGrating,
-                                           elem_args={'d': 2e-4,
-                                                      'zoom': [1, 25, 25],
-                                                      'order_selector': order_selector,
-                                                      'orientation':
-blazemat})
+gas = design.rowland.GratingArrayStructure(**gratinggrid)
 
 # Color gratings according to the sector they are in
 for e in gas.elements:
@@ -90,6 +83,8 @@ det = design.rowland.RowlandCircleArray(rowland, theta=[2.3, 3.9],
 # detection on detectors that follow a curved surface.
 # Project (not propagate) down to the focal plane.
 projectfp = analysis.ProjectOntoPlane()
+projectfp2 = analysis.ProjectOntoPlane()
+projectfp2.loc_coos_name = ['proj2_x', 'proj2_y']
 
 # Place an additional detector on the Rowland circle.
 detcirc = optics.CircularDetector.from_rowland(rowland, width=20)
@@ -102,8 +97,10 @@ target = SkyCoord(30., 30., unit='deg')
 star = source.PointSource(coords=target, energy=.5, flux=1.)
 pointing = source.FixedPointing(coords=target)
 
-default = simulator.Sequence(elements=[aper, mirr, gas, catsupport,
-                                       catsupportbars, det, projectfp])
-instrum = simulator.Sequence(elements=[aper, mirr, gas, catsupport,
-                                       catsupportbars, detcirc, projectfp,
-                                       det])
+conf = {'inplanescatter': 2e-6,
+        'perpplanescatter': 2e-6}
+
+instrum = simulator.Sequence(elements=[MetaShell(inplanescatter=conf['inplanescatter'],
+                                                 perplanescatter=conf['perpplanescatter']),
+                                       gas, catsupport,
+                                       catsupportbars, det, projectfp, filterqe])

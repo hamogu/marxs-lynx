@@ -1,0 +1,44 @@
+# %ECSV 0.9
+# ---
+# datatype:
+# - {name: Metashell Serial Number, datatype: int64}
+# - {name: r_inner, unit: mm, datatype: int64}
+# - {name: r_outer, unit: mm, datatype: int64}
+# - {name: '0.2', datatype: int64}
+# - {name: '0.4', datatype: int64}
+# - {name: '0.6', datatype: int64}
+# - {name: '0.8', datatype: int64}
+# - {name: '1.0', datatype: int64}
+# - {name: '1.4', datatype: int64}
+# - {name: '1.8', datatype: int64}
+# - {name: '2.0', datatype: int64}
+# - {name: '2.2', datatype: int64}
+# meta: !!omap
+# - {ORIGFILE: EffectiveAreas4XGS.xlsx}
+# - {origin: "-------- Forwarded Message --------\nSubject: \tFW: request for XGS\n\
+#     Date: \tFri, 9 Mar 2018 23:57:57 +0000\nFrom: \tGaskin, Jessica A. (MSFC-ST12)\
+#     \ <jessica.gaskin@nasa.gov>\nTo: \tBautz <mwb@space.mit.edu>, Heilmann <ralf@space.mit.edu>,\
+#     \ rlm90@psu.edu <rlm90@psu.edu>\n\n\nMark, Ralf, and Randy,\n\nThe attached is\
+#     \ the EA vs energy vs radii for the meta-shell configuration. Do you need more\
+#     \ fidelity than this?\n\n-Best,\nJessica\n________________________________________\n\
+#     From: Zhang, William W., Dr {Will} (GSFC-6620)\nSent: Friday, March 09, 2018 4:05\
+#     \ PM\nTo: Gaskin, Jessica A. (MSFC-ST12)\nSubject: Re: request for XGS\n\nSee\
+#     \ attachment.  Let me know if you want additional or different\ninformation.\n\
+#     \n\n============================================================================================================\n\
+#     William W. Zhang ||  Goddard Space Flight Center || Bldg 34 Rm S266 || Greenbelt,\
+#     \ MD 20771 || (301) 286 6230\n============================================================================================================"}
+# - {author: Hans Moritz Guenther}
+# schema: astropy-2.0
+"Metashell Serial Number" r_inner r_outer 0.2 0.4 0.6 0.8 1.0 1.4 1.8 2.0 2.2
+1 127 231 344 336 335 334 336 335 330 309 253
+2 242 346 702 677 674 672 675 674 657 590 429
+3 357 461 1064 1012 1007 1002 1008 1004 966 826 532
+4 472 576 1427 1339 1329 1320 1330 1320 1250 1007 573
+5 587 691 1785 1652 1637 1622 1635 1615 1498 1116 560
+6 702 806 2119 1933 1911 1887 1903 1866 1683 1126 502
+7 817 921 2363 2125 2095 2062 2077 2015 1748 994 406
+8 932 1036 2595 2299 2260 2215 2227 2128 1744 752 304
+9 1047 1151 2858 2495 2443 2382 2388 2233 1676 434 213
+10 1162 1266 3059 2630 2564 2485 2478 2250 1462 171 135
+11 1277 1381 3190 2700 2620 2520 2497 2176 1100 59 79
+12 1392 1496 3416 2845 2745 2617 2569 2109 672 24 45
