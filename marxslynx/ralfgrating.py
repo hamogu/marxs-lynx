@@ -1,7 +1,7 @@
 import numpy as np
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
-from astropy.utils.data import get_pkg_data_filename
+from astropy.utils.data import get_pkg_data_filename as gpdf
 from marxs.base import SimulationSequenceElement
 from marxs.optics import GlobalEnergyFilter
 
@@ -33,12 +33,15 @@ class InterpolateRalfTable(object):
 
     Parameters
     ----------
+    filename : string
+        Location of file with blaze angle and energy dependent grating
+        efficiencies.
     k : int
         Degree of spline. See `scipy.interpolate.RectBivariateSpline`.
     '''
 
-    def __init__(self, k=3):
-        wave, theta, names, orders = load_table2d(get_pkg_data_filename('data/gratings/Si_efficiency.csv'))
+    def __init__(self, filename, k=3):
+        wave, theta, names, orders = load_table2d(filename)
         theta = theta.to(u.rad)
         # Order is int, we will never interpolate about order,
         # thus, we'll just have
@@ -88,6 +91,11 @@ class InterpolateRalfTable(object):
 
         return orders[ind_orders], totalprob
 
+order_selector_Si = InterpolateRalfTable(gpdf('data/gratings/Si_efficiency.dat',
+                                              package='marxslynx'))
+order_selector_SiPt = InterpolateRalfTable(gpdf('data/gratings/SiPt_efficiency.dat',
+                                                package='marxslynx'))
+
 
 class RalfQualityFactor(SimulationSequenceElement):
     '''Scale probabilites of theoretical curves to measured values.
@@ -117,6 +125,7 @@ def catsupportbars(photons):
     photons['probability'][photons['facet'] < 0] = 0.
     return photons
 
-
-catsupport = GlobalEnergyFilter(filterfunc=lambda e: load_number('gratings', 'L1support', 'transmission') *
-                                load_number('gratings', 'L2support', 'transmission'))
+# Define L1, L2 blockage as simple filters due to geometric area
+# L1 support: blocks 10 % - better than current 18 %
+# L2 support: blocks 10 % - better than current 19 %
+catsupport = GlobalEnergyFilter(filterfunc=lambda e: 0.9 * 0.9)

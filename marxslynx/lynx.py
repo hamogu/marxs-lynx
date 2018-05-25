@@ -1,106 +1,118 @@
 import copy
-from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.utils.data import get_pkg_data_filename
 import numpy as np
 import transforms3d
 from scipy.interpolate import interp1d
 
-import marxs
-from marxs import optics, simulator, source, design, analysis
+from marxs import optics, simulator, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
 
 from . import ralfgrating
-from mirror import MetaShell
+from .mirror import MetaShell, metashelldata
+from .utils import tagversion
 
-from marxs import optics
-from marxs.simulator import Sequence
-
-filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'))
+filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'),
+                        format='ascii.ecsv')
 filterqe = optics.GlobalEnergyFilter(filterfunc=interp1d(filterdata['energy'] / 1000,
-                                                         filterdata['Total_throughput'])
-
-# Blaze angle in degrees
-blazeang = 1.6
-
-
-alpha = np.deg2rad(2.2 * blazeang)
-beta = np.deg2rad(4.4 * blazeang)
-R, r, pos4d = design_tilted_torus(8.6e3, alpha, beta)
-rowland = RowlandTorus(R, r, pos4d=pos4d)
-
-
-# CAT grating
-order_selector = ralfgrating.InterpolateRalfTable()
-
-# Define L1, L2 blockage as simple filters due to geometric area
-# L1 support: blocks 10 % - better than current 18 %
-# L2 support: blocks 10 % - better than current 19 %
-catsupport = optics.GlobalEnergyFilter(filterfunc=lambda e: 0.9 * 0.9)
+                                                         filterdata['Total_throughput']))
+conf = {'inplanescatter': 2e-6,
+        'perpplanescatter': 2e-6,
+        'blazeang': np.deg2rad(1.6),
+        'alphafac': 2.2,
+        'betafac': 4.4,
+        'grating_size': 50.,
+        'grating_frame': 4.,
+        'grating_d': 2e-4,
+        'det_kwargs': {'theta': [2.5, 3.5],
+                       'd_element': 51.,
+                       'elem_class': optics.FlatDetector,
+                       'elem_args': {'zoom': [1, 24.576, 12.288],
+                                     'pixsize': 0.024}},
+    }
 
 
-class CATSupportbars(marxs.base.SimulationSequenceElement):
-    '''Metal structure that holds grating facets will absorb all photons
-    that do not pass through a grating facet.
+def add_rowland_to_conf(conf):
+    conf['alpha'] = conf['alphafac'] * conf['blazeang']
+    conf['beta'] = conf['betafac'] * conf['blazeang']
+    R, r, pos4d = design_tilted_torus(9.6e3, conf['alpha'], conf['beta'])
+    conf['rowland'] = RowlandTorus(R, r, pos4d=pos4d)
+    conf['blazemat'] = transforms3d.axangles.axangle2mat(np.array([0, 0, 1]),
+                                                         -conf['blazeang'])
 
-    We might want to call this L3 support
-    '''
-    def process_photons(self, photons):
-        photons['probability'][photons['facet'] < 0] = 0.
-        return photons
+add_rowland_to_conf(conf)
 
-catsupportbars = CATSupportbars()
 
-blazemat = transforms3d.axangles.axangle2mat(np.array([0, 0, 1]),
-                                             np.deg2rad(-blazeang))
+class LynxGAS(design.rowland.GratingArrayStructure):
+    def __init__(self, conf):
+        gg = {'rowland': conf['rowland'],
+              'd_element': conf['grating_size'] + 2 * conf['grating_frame'],
+              'x_range': [7e3, 1e4],
+              'radius': [np.min(metashelldata['r_inner']), np.max(metashelldata['r_outer'])],
+              'normal_spec': np.array([0, 0, 0, 1]),
+              'elem_class': optics.CATGrating,
+              'elem_args': {'d': conf['grating_d'],
+                            'zoom': [1., conf['grating_size'] / 2., conf['grating_size'] / 2],
+                            'orientation':conf['blazemat'],
+                            'order_selector': ralfgrating.order_selector_Si}}
 
-gratinggrid = {'rowland': rowland, 'd_element': 72.,
-               'x_range': [7e3, 9e3],
-               'radius': [300, 600],
-               'normal_spec': np.array([0, 0, 0, 1]),
-               'elem_class': optics.CATGrating,
-               'elem_args': {'d': 2e-4, 'zoom': [1., 25., 25.],
-                             'orientation': blazemat,
-                             'order_selector': order_selector}}
+        super(LynxGAS, self).__init__(**gg)
 
-gas = design.rowland.GratingArrayStructure(**gratinggrid)
+        # Color gratings according to the sector they are in
+        for e in self.elements:
+            e.display = copy.deepcopy(e.display)
+            # Angle from baseline in range 0..pi
+            ang = np.arctan(e.pos4d[1, 3] / e.pos4d[2, 3]) % (np.pi)
+            # pick one colors
+            e.display['color'] = 'rgb'[int(ang / np.pi * 3)]
 
-# Color gratings according to the sector they are in
-for e in gas.elements:
-     e.display = copy.deepcopy(e.display)
-     # Angle from baseline in range 0..pi
-     ang = np.arctan(e.pos4d[1,3] / e.pos4d[2, 3]) % (np.pi)
-     # pick one of fixe colors
-     e.display['color'] = 'rgb'[int(ang / np.pi * 3)]
 
-det_kwargs = {'d_element': 51.,
-              'elem_class': optics.FlatDetector,
-              'elem_args': {'zoom': [1, 24.576, 12.288], 'pixsize': 0.024}}
-det = design.rowland.RowlandCircleArray(rowland, theta=[2.3, 3.9],
-**det_kwargs)
+class RowlandDetArray(design.rowland.RowlandCircleArray):
+    def __init__(self, conf):
+        super(RowlandDetArray, self).__init__(conf['rowland'], **conf['det_kwargs'])
 
-# This is just one way to establish a global coordinate system for
-# detection on detectors that follow a curved surface.
-# Project (not propagate) down to the focal plane.
-projectfp = analysis.ProjectOntoPlane()
-projectfp2 = analysis.ProjectOntoPlane()
-projectfp2.loc_coos_name = ['proj2_x', 'proj2_y']
 
 # Place an additional detector on the Rowland circle.
-detcirc = optics.CircularDetector.from_rowland(rowland, width=20)
+detcirc = optics.CircularDetector.from_rowland(conf['rowland'], width=50)
 detcirc.loc_coos_name = ['detcirc_phi', 'detcirc_y']
 detcirc.detpix_name = ['detcircpix_x', 'detcircpix_y']
 detcirc.display['opacity'] = 0.0
 
 
-target = SkyCoord(30., 30., unit='deg')
-star = source.PointSource(coords=target, energy=.5, flux=1.)
-pointing = source.FixedPointing(coords=target)
+class PerfectLynx(simulator.Sequence):
+    '''Default Definition of Lynx without any misalignments'''
+    def add_mirror(self, conf):
+        return [MetaShell(conf)]
 
-conf = {'inplanescatter': 2e-6,
-        'perpplanescatter': 2e-6}
+    def add_gas(self, conf):
+        return [LynxGAS(conf),
+                ralfgrating.catsupport,
+                ralfgrating.catsupportbars]
 
-instrum = simulator.Sequence(elements=[MetaShell(inplanescatter=conf['inplanescatter'],
-                                                 perplanescatter=conf['perpplanescatter']),
-                                       gas, catsupport,
-                                       catsupportbars, det, projectfp, filterqe])
+    def add_detectors(self, conf):
+        '''Add detectors to the element list
+
+        This is a separate function that is called from __init__ because all
+        detectors need different parameters. Placing this specific code in it's own
+        function makes it easy to override for derived classes.
+        '''
+
+        return [RowlandDetArray(conf),
+                analysis.ProjectOntoPlane(),
+                # need a propagate (-1000) here later
+                detcirc]
+
+    def post_process(self):
+        self.KeepPos = simulator.KeepCol('pos')
+        return [self.KeepPos]
+
+    def __init__(self, conf=conf, **kwargs):
+        elem = self.add_mirror(conf)
+        elem.extend(self.add_gas(conf))
+        elem.append(filterqe)
+        elem.extend(self.add_detectors(conf))
+        elem.append(tagversion)
+
+        super(PerfectLynx, self).__init__(elements=elem,
+                                          postprocess_steps=self.post_process(),
+                                          **kwargs)
