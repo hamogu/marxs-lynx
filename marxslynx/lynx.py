@@ -7,6 +7,7 @@ from scipy.interpolate import interp1d
 
 from marxs import optics, simulator, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
+from marxs.math.geometry import Cylinder
 
 from . import ralfgrating
 from .mirror import MetaShell, metashelldata
@@ -73,10 +74,13 @@ class RowlandDetArray(design.rowland.RowlandCircleArray):
 
 
 # Place an additional detector on the Rowland circle.
-detcirc = optics.CircularDetector.from_rowland(conf['rowland'], width=50)
+detcirc = optics.CircularDetector(geometry=Cylinder.from_rowland(conf['rowland'],
+                                                                 width=50,
+                                                                 rotation=np.pi,
+                                                                 kwargs={'phi_lim':[-np.pi/2, np.pi/2]}))
 detcirc.loc_coos_name = ['detcirc_phi', 'detcirc_y']
 detcirc.detpix_name = ['detcircpix_x', 'detcircpix_y']
-detcirc.display['opacity'] = 0.0
+
 
 
 class PerfectLynx(simulator.Sequence):
