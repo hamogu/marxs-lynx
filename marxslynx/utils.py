@@ -5,6 +5,7 @@ from . import version
 
 
 class TagVersion(MarxsElement):
+
     def __init__(self, **kwargs):
         self.origin = kwargs.pop('origin', 'unknown')
         self.creator = kwargs.pop('creator', 'MARXS')

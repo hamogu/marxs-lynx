@@ -46,7 +46,7 @@ class InterpolateRalfTable(object):
         # Order is int, we will never interpolate about order,
         # thus, we'll just have
         # len(order) 2d interpolations
-        self.orders = -np.array([int(n[1:]) for n in names])
+        self.orders = np.array([int(n[1:]) for n in names])
         self.interpolators = [RectBivariateSpline(wave, theta, d, kx=k, ky=k) for d in orders]
 
     def probabilities(self, energies, pol, blaze):
