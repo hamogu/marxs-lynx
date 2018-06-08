@@ -1,27 +1,19 @@
 import numpy as np
-
-
-#What is phi of center?
-
+from transforms3d.affines import decompose
 
 from marxs.math.geometry import Cylinder
 from marxs.math.utils import h2e
 
 
-e = instrum.elements[2].elements[200]
+def bend_gratings(conf, gas, r=None):
+    for e in gas.elements:
+        r_elem = np.linalg.norm(h2e(e.geometry['center'])) if r is None else r
 
-position = h2e(e.geometry['center']) - r * h2e(e.geometry['e_x'])
-
-#orientation:
-
-from transforms3d.affines import decompose, compose
-
-r = conf['focallength']
-
-d_phi = np.arctan(conf['grating_size'] / 2 / r)
-
-t,rot,z,s = decompose(e.geometry.pos4d)
-
-c = Cylinder({'position': position, 'orientation': rot,
-              'zoom': r, r, conf['grating_size']/2],
-              'phi_lim': [-d_phi, d_phi]})
+        t, rot, z, s = decompose(e.geometry.pos4d)
+        d_phi = np.arctan(conf['grating_size'] / 2 / r_elem)
+        c = Cylinder({'position': t - r_elem * h2e(e.geometry['e_x']),
+                      'orientation': rot,
+                      'zoom': [r_elem, r_elem, conf['grating_size'] / 2],
+                      'phi_lim': [-d_phi, d_phi]})
+        c._geometry = e.geometry._geometry
+        e.geometry = c
