@@ -6,6 +6,7 @@ from astropy.utils.data import get_pkg_data_filename
 
 from marxs import optics
 from marxs.simulator import Sequence
+from marxs.base import SimulationSequenceElement
 
 metashelldata = Table.read(get_pkg_data_filename('data/metashellgeom.dat',
                                                  package='marxslynx'),
@@ -14,8 +15,8 @@ metashelldata = Table.read(get_pkg_data_filename('data/metashellgeom.dat',
 
 class MetaShellAperture(optics.MultiAperture):
 
-    def __init__(self, **kwargs):
-        elements = [optics.CircleAperture(position=[10200, 0, 0],
+    def __init__(self, conf, **kwargs):
+        elements = [optics.CircleAperture(position=[conf['focallength'] + 200, 0, 0],
                                           zoom=[1, shell['r_outer'], shell['r_outer']],
                                           r_inner=shell['r_inner'],
                                           id_num=shell['Metashell Serial Number'])
@@ -37,21 +38,22 @@ class MetaShellAperture(optics.MultiAperture):
 
 class MetaShellMirror(optics.FlatStack):
 
+    display = {'shape': 'None'}
     def __init__(self, conf):
         kwargs = {}
-        kwargs['position'] = [10000, 0, 0]
+        kwargs['position'] = [conf['focallength'], 0, 0]
         kwargs['zoom'] = [20, np.max(metashelldata['r_outer'] * 1.1),
                           np.max(metashelldata['r_outer'] * 1.1)]
         kwargs['elements'] = [optics.PerfectLens,
                               optics.RadialMirrorScatter]
-        kwargs['keywords'] = [{'focallength': 10000},
+        kwargs['keywords'] = [{'focallength': conf['focallength']},
                               {'inplanescatter': conf['inplanescatter'],
                                'perpplanescatter': conf['perpplanescatter']}]
 
         super(MetaShellMirror, self).__init__(**kwargs)
 
 
-class MetaShellEfficiency(optics.base.OpticalElement):
+class MetaShellEfficiency(SimulationSequenceElement):
 
     def __init__(self):
         data = metashelldata
@@ -77,6 +79,5 @@ class MetaShell(Sequence):
     # This could be improved (e.g. to allow post_process_steps)
     # but not needed right now.
     def __init__(self, conf):
-        super(MetaShell, self).__init__(elements=[MetaShellAperture(),
-                                                  MetaShellMirror(conf),
+        super(MetaShell, self).__init__(elements=[MetaShellMirror(conf),
                                                   MetaShellEfficiency()])

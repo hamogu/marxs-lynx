@@ -8,9 +8,11 @@ from scipy.interpolate import interp1d
 from marxs import optics, simulator, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
 from marxs.math.geometry import Cylinder
+from marxs.optics import FlatDetector
+from marxs.simulator import Propagator
 
 from . import ralfgrating
-from .mirror import MetaShell, metashelldata
+from .mirror import MetaShell, MetaShellAperture, metashelldata
 from .utils import tagversion
 
 filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'),
@@ -20,6 +22,7 @@ filterqe = optics.GlobalEnergyFilter(filterfunc=interp1d(filterdata['energy'] / 
 conf = {'inplanescatter': 2e-6,
         'perpplanescatter': 2e-6,
         'blazeang': np.deg2rad(1.6),
+        'focallength': 10000.,
         'alphafac': 2.2,
         'betafac': 4.4,
         'grating_size': 50.,
@@ -44,10 +47,11 @@ def add_rowland_to_conf(conf):
 add_rowland_to_conf(conf)
 
 
-class LynxGAS(design.rowland.GratingArrayStructure):
+class LynxGAS(ralfgrating.MeshGrid):
     def __init__(self, conf):
         gg = {'rowland': conf['rowland'],
               'd_element': conf['grating_size'] + 2 * conf['grating_frame'],
+              'parallel_spec': np.array([0., 1., 0., 0.]),
               'x_range': [7e3, 1e4],
               'radius': [np.min(metashelldata['r_inner']), np.max(metashelldata['r_outer'])],
               'normal_spec': np.array([0, 0, 0, 1]),
@@ -63,7 +67,7 @@ class LynxGAS(design.rowland.GratingArrayStructure):
         for e in self.elements:
             e.display = copy.deepcopy(e.display)
             # Angle from baseline in range 0..pi
-            ang = np.arctan(e.pos4d[1, 3] / e.pos4d[2, 3]) % (np.pi)
+            ang = np.arctan2(e.pos4d[1, 3], e.pos4d[2, 3]) % (np.pi)
             # pick one colors
             e.display['color'] = 'rgb'[int(ang / np.pi * 3)]
 
@@ -81,12 +85,14 @@ detcirc = optics.CircularDetector(geometry=Cylinder.from_rowland(conf['rowland']
 detcirc.loc_coos_name = ['detcirc_phi', 'detcirc_y']
 detcirc.detpix_name = ['detcircpix_x', 'detcircpix_y']
 
+flatdet = FlatDetector(zoom=[1, 1e5, 1e5])
+flatdet.display['shape'] = 'None'
 
 
 class PerfectLynx(simulator.Sequence):
     '''Default Definition of Lynx without any misalignments'''
     def add_mirror(self, conf):
-        return [MetaShell(conf)]
+        return [MetaShellAperture(conf), MetaShell(conf)]
 
     def add_gas(self, conf):
         return [LynxGAS(conf),
@@ -100,11 +106,12 @@ class PerfectLynx(simulator.Sequence):
         detectors need different parameters. Placing this specific code in it's own
         function makes it easy to override for derived classes.
         '''
-
         return [RowlandDetArray(conf),
                 analysis.ProjectOntoPlane(),
-                # need a propagate (-1000) here later
-                detcirc]
+                Propagator(distance=-1000),
+                detcirc,
+                Propagator(distance=-1000),
+                flatdet]
 
     def post_process(self):
         self.KeepPos = simulator.KeepCol('pos')
