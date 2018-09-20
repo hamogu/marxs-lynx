@@ -25,10 +25,10 @@ conf = {'inplanescatter': 2e-6,
         'focallength': 10000.,
         'alphafac': 2.2,
         'betafac': 4.4,
-        'grating_size': 50.,
-        'grating_frame': 4.,
+        'grating_size': np.array([20., 50.]),
+        'grating_frame': 2.,
         'grating_d': 2e-4,
-        'det_kwargs': {'theta': [2.5, 3.5],
+        'det_kwargs': {'theta': [3.1, 3.18],
                        'd_element': 51.,
                        'elem_class': optics.FlatDetector,
                        'elem_args': {'zoom': [1, 24.576, 12.288],
@@ -57,7 +57,7 @@ class LynxGAS(ralfgrating.MeshGrid):
               'normal_spec': np.array([0, 0, 0, 1]),
               'elem_class': optics.CATGrating,
               'elem_args': {'d': conf['grating_d'],
-                            'zoom': [1., conf['grating_size'] / 2., conf['grating_size'] / 2],
+                            'zoom': [1., conf['grating_size'][0] / 2., conf['grating_size'][1] / 2],
                             'orientation':conf['blazemat'],
                             'order_selector': ralfgrating.order_selector_Si}}
 
@@ -111,7 +111,8 @@ class PerfectLynx(simulator.Sequence):
                 Propagator(distance=-1000),
                 detcirc,
                 Propagator(distance=-1000),
-                flatdet]
+                flatdet,
+                FlatDetector(zoom=[1, 50, 50])]
 
     def post_process(self):
         self.KeepPos = simulator.KeepCol('pos')

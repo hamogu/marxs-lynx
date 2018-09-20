@@ -207,9 +207,9 @@ class MeshGrid(ParallelCalculated, OpticalElement):
 
     def elempos(self):
 
-        n_x = int(np.ceil(2 * self.radius[1] / self.d_element))
-        x_width = n_x * self.d_element
-        x_pos = np.arange(- x_width / 2, self.radius[1], self.d_element)
+        n_x = int(np.ceil(2 * self.radius[1] / self.d_element[0]))
+        x_width = n_x * self.d_element[0]
+        x_pos = np.arange(- x_width / 2, self.radius[1], self.d_element[0])
 
         xpos = []
         ypos = []
@@ -221,15 +221,15 @@ class MeshGrid(ParallelCalculated, OpticalElement):
             else:
                 y_outer = np.sqrt(self.radius[1]**2 - x**2)
                 if np.abs(x) > self.radius[0]:
-                    n_y = int(np.ceil(2 * y_outer / self.d_element))
-                    y_width = n_y * self.d_element
-                    y = np.arange(- y_width / 2, y_outer, self.d_element)
+                    n_y = int(np.ceil(2 * y_outer / self.d_element[1]))
+                    y_width = n_y * self.d_element[1]
+                    y = np.arange(- y_width / 2, y_outer, self.d_element[1])
                 else:
                     y_inner = np.sqrt(self.radius[0]**2 - x**2)
                     y_mid = 0.5 * (y_inner + y_outer)
-                    n_y = int(np.ceil((y_outer - y_inner) / self.d_element))
-                    y_width = n_y * self.d_element
-                    y = np.arange(y_mid - y_width / 2, y_outer, self.d_element)
+                    n_y = int(np.ceil((y_outer - y_inner) / self.d_element[1]))
+                    y_width = n_y * self.d_element[1]
+                    y = np.arange(y_mid - y_width / 2, y_outer, self.d_element[1])
                     y = np.hstack([-y, y])
 
             xpos.extend([x] * len(y))
