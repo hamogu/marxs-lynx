@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.core.umath_tests import inner1d
 from scipy.interpolate import RectBivariateSpline
 from transforms3d.affines import decompose
 import astropy.units as u
