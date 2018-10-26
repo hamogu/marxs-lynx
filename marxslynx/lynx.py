@@ -12,7 +12,7 @@ from marxs.optics import FlatDetector
 from marxs.simulator import Propagator
 
 from . import ralfgrating
-from .mirror import MetaShell, MetaShellAperture, metashelldata
+from .mirror import MetaShell, MetaShellAperture, metashellgeometry
 from .utils import tagversion
 
 filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'),
@@ -53,7 +53,8 @@ class LynxGAS(ralfgrating.MeshGrid):
               'd_element': conf['grating_size'] + 2 * conf['grating_frame'],
               'parallel_spec': np.array([0., 1., 0., 0.]),
               'x_range': [7e3, 1e4],
-              'radius': [np.min(metashelldata['r_inner']), np.max(metashelldata['r_outer'])],
+              'radius': [np.min(metashellgeometry['r_inner']),
+                         np.max(metashellgeometry['r_outer'])],
               'normal_spec': np.array([0, 0, 0, 1]),
               'elem_class': optics.CATGrating,
               'elem_args': {'d': conf['grating_d'],

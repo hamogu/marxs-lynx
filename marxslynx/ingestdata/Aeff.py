@@ -57,3 +57,24 @@ William W. Zhang ||  Goddard Space Flight Center || Bldg 34 Rm S266 || Greenbelt
 t.meta['author'] = 'Hans Moritz Guenther'
 
 t.write(datapath + 'metashellgeom.dat', format='ascii.ecsv', overwrite=True)
+
+
+### Now for the second table in different notation...
+tab2 = Table.read('inputdata/Output4Ralf.csv', format='ascii', delimiter=',', header_start=0)
+tab2.meta['author'] = 'Hans Moritz Guenther'
+tab2.meta['ORIGFILE'] = 'Output4Ralf.xlsx'
+tab2.meta['origin'] = '''
+-------- Forwarded Message --------
+Subject: 	Re: Lynx mirror parameters
+Date: 	Tue, 14 Aug 2018 20:41:36 -0400
+From: 	William W. Zhang <William.W.Zhang@nasa.gov>
+To: 	Ralf Heilmann <ralf@space.mit.edu>
+
+
+See attachment. I think it has what you wanted.
+
+
+============================================================================================================
+William W. Zhang ||  Goddard Space Flight Center || Bldg 34 Rm S266 || Greenbelt, MD 20771 || (301) 286 6230
+============================================================================================================
+'''
