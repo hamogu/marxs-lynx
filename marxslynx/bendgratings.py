@@ -1,17 +1,31 @@
 import numpy as np
+from scipy.optimize import minimize_scalar
 from scipy.interpolate import RectBivariateSpline
 from transforms3d.affines import decompose
-import astropy.units as u
 
 from marxs.math.geometry import Cylinder
-from marxs.math.utils import h2e, norm_vector
+from marxs.math.utils import h2e, e2h, norm_vector
 from marxs.utils import generate_test_photons
-from marxs.optics import CATGrating
-
-from .lynx import detcirc
+from marxs.optics import OrderSelector
 
 
 def bend_gratings(conf, gas, r=None):
+    '''Bend gratings in a gas to follow the Rowland cirle
+
+    Gratings are bend in one direction (the dispersion direction) only.
+
+    Assumes that the focal point is at the origin of the coordinate system!
+
+    Parameters
+    ----------
+    conf : dict
+        Configuration values for Lynx. The parameters of the Rowland circle
+        and the gratings are taken form there.
+    gas : `marxs.simulartor.BaseContainer` instance
+        Object that has individual gratings as elements
+        Code should be updated to accept a list of elements as a result
+        of e.g. elem_of_class().
+    '''
     for e in gas.elements:
         r_elem = np.linalg.norm(h2e(e.geometry['center'])) if r is None else r
 
@@ -25,70 +39,90 @@ def bend_gratings(conf, gas, r=None):
         e.geometry = c
 
 
-def find_where_ref_ray_should_go(conf, order, wave):
-    energy = wave.to(u.keV, equivalencies=u.spectral())
-    rays = generate_test_photons(2)
-    rays['energy'] = energy.value
-    rays['pos'][:, 0] = 1e5
+class NumericalChirpFinder():
+    uv = [0, 0]
 
-    def mock_order(x, y, z):
-        return np.array([0, order]), np.ones(2)
+    def __init__(self, detector, grat, order, energy, d=0.0002):
+        self.photon = generate_test_photons(1)
+        self.detector = detector
+        self.grat = grat
+        self.energy = energy
+        self.order = order
+        self.base_d = d
+        self.calc_goal()
 
-    pos = conf['rowland'].solve_quartic(y=0, z=0, interval=[9e3, 1.2e4])
-    test_grat = CATGrating(d=conf['grating_d'], order_selector=mock_order,
-                            position=[pos, 0, 0],
-                            orientation=conf['blazemat'] )
-    rays = test_grat(rays)
-    rays = detcirc(rays)
-    return rays['pos'].data[0, :], rays['pos'].data[1, :]
+    def set_grat(self, grat):
+        self.grat = grat
+        self.calc_goal()
+
+    def set_uv(self, uv):
+        self.uv = uv
+        self.init_photon()
+
+    def calc_goal(self):
+        if not hasattr(self.grat, 'original_orderselector'):
+            self.grat.original_orderselector = self.grat.order_selector
+        self.grat.order_selector = OrderSelector([self.order])
+        self.grat._d = self.base_d
+        self.set_uv([0., 0.])
+        self.run_photon()
+        self.goal = self.photon['detcirc_phi'][0]
+
+    def init_photon(self):
+        posongrat = h2e(self.grat.geometry['center'] +
+                        self.uv[0] * self.grat.geometry['v_y'] +
+                        self.uv[1] * self.grat.geometry['v_z'])
+        self.pos = e2h(1.1 * posongrat, 1)
+        self.dir = norm_vector(- e2h(posongrat.reshape(1, 3), 0))
+        self.reset_photon()
+
+    def reset_photon(self):
+        self.photon['pos'] = self.pos
+        self.photon['dir'] = self.dir
+        self.photon['probability'] = 1
+
+    def run_photon(self):
+        self.reset_photon()
+        self.photon = self.grat(self.photon)
+        self.photon = self.detector(self.photon)
+
+    def optimize_func(self, d):
+        self.grat._d = d * self.base_d
+        self.run_photon()
+        return np.abs(self.photon['detcirc_phi'][0] - self.goal)
+
+    def correction_on_d(self, uarray=np.array([-.999, 0, .999]),
+                        varray=np.array([0])):
+        corr = np.ones((len(uarray), len(varray)))
+        for j, u in enumerate(uarray):
+            for k, v in enumerate(varray):
+                self.set_uv([u, v])
+                corr[j, k] = minimize_scalar(self.optimize_func,
+                                             bracket=(.99, 1., 1.01)).x
+        return corr
 
 
-def chirp_flat_grating(conf, gas, order, wave, n_points=[3, 3]):
+def chirp_gratings(gratings, optimizer):
     '''
-    Parameters
-    ----------
-    wave : `astropy.quantity.Quantity`
+    Dimensions of corr are hardcoded
     '''
-    focalpoint, ref_point = find_where_ref_ray_should_go(conf, order, wave)
-    pos_on_e = np.meshgrid(np.linspace(-1, 1, n_points[0]), np.linspace(-1, 1, n_points[1]))
-    d_needed = np.zeros_like(pos_on_e[0])
-    for e in gas.elements:
-        l_x = np.linalg.norm(e.geometry['v_y'])
-        l_y = np.linalg.norm(e.geometry['v_z'])
-        for i in range(pos_on_e[0].shape[0]):
-            for j in range(pos_on_e[0].shape[1]):
-                positions = h2e(e.geometry['center']) + pos_on_e[0][i, j] * h2e(e.geometry['v_y']) + pos_on_e[1][i, j] * h2e(e.geometry['v_z'])
-                vec_pos_foc = - positions[:2] + h2e(focalpoint)[:2]
-                vec_pos_foc = vec_pos_foc / np.linalg.norm(vec_pos_foc)
-                vec_pos_ref_point = - positions[:2] + h2e(ref_point)[:2]
-                vec_pos_ref_point = vec_pos_ref_point / np.linalg.norm(vec_pos_ref_point)
+    uarray = np.array([-.999, 0, .999])
+    varray = np.array([0])
+    for grat in gratings:
+        optimizer.set_grat(grat)
+        corr = optimizer.correction_on_d(uarray, varray)
+        corr = np.tile(corr[:, 0], (3, 1)).T
+        ly = np.linalg.norm(grat.geometry['v_y'])
+        lz = np.linalg.norm(grat.geometry['v_z'])
+        grat.spline = RectBivariateSpline(ly * uarray, lz * uarray,
+                                          0.0002 * corr,
+                                          bbox=[-ly, ly, -lz, lz],
+                                          kx=2, ky=2)
 
-                theta_needed = np.arccos(np.dot(vec_pos_foc, vec_pos_ref_point))
-                d_needed[i, j] = np.abs(order) * wave.to(u.mm).value / np.sin(theta_needed)
-        e._d = RectBivariateSpline(pos_on_e[0][0, :], pos_on_e[1][:, 0], d_needed)
+        def func(self, intercoos):
+            return self.spline(intercoos[:, 0], intercoos[:, 1], grid=False)
 
-def chirp_flat_grating2(conf, gas, order, wave):
-    '''
-    Parameters
-    ----------
-    wave : `astropy.quantity.Quantity`
-    '''
-    focalpoint, ref_point = find_where_ref_ray_should_go(conf, order, wave)
-    for e in gas.elements:
-        d_needed = np.zeros(3)
-        l_x = np.linalg.norm(e.geometry['v_y'])
-        pos_on_e = np.array([-l_x, 0, l_x])
-        for i in range(3):
-            position = h2e(e.geometry['center']) + pos_on_e[i] * h2e(e.geometry['e_y'])
-            vec_pos_foc = - position[:2] + h2e(focalpoint)[:2]
-            vec_pos_foc = vec_pos_foc / np.linalg.norm(vec_pos_foc)
-            vec_pos_ref_point = - position[:2] + h2e(ref_point)[:2]
-            vec_pos_ref_point = vec_pos_ref_point / np.linalg.norm(vec_pos_ref_point)
-
-            theta_needed = np.arccos(np.dot(vec_pos_foc, vec_pos_ref_point))
-            d_needed[i] = np.abs(order) * wave.to(u.mm).value / np.sin(theta_needed)
-        e._d_needed = d_needed
-        e._chirp = (d_needed[2] - d_needed[0]) / (2 * l_x)
-        def func(intercoos):
-            return intercoos[:, 0] * e._chirp + d_needed[0]
-        e._d = func
+        # Invoking the descriptor protocol to create a bound method
+        # see https://stackoverflow.com/questions/972/adding-a-method-to-an-existing-object-instance
+        grat._d = func.__get__(grat)
+        grat.order_selector = grat.original_orderselector
