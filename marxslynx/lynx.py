@@ -14,6 +14,7 @@ from marxs.simulator import Propagator
 from . import ralfgrating
 from .mirror import MetaShell, MetaShellAperture, metashellgeometry
 from .utils import tagversion
+from .bendgratings import NumericalChirpFinder, chirp_gratings
 
 filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'),
                         format='ascii.ecsv')
@@ -46,6 +47,13 @@ def add_rowland_to_conf(conf):
 
 add_rowland_to_conf(conf)
 
+conf_5050 = copy.copy(conf)
+conf_5050['grating_size'] = np.array([50., 50.])
+
+conf_chirp = copy.copy(conf)
+conf_chirp['grating_size'] = np.array([80., 160.])
+conf_chrip['chirp_energy'] = 0.6
+conf_chrip['chirp_order'] = -5
 
 class LynxGAS(ralfgrating.MeshGrid):
     def __init__(self, conf):
@@ -129,3 +137,4 @@ class PerfectLynx(simulator.Sequence):
         super(PerfectLynx, self).__init__(elements=elem,
                                           postprocess_steps=self.post_process(),
                                           **kwargs)
+        if ('chirp_energy' in conf) and (
