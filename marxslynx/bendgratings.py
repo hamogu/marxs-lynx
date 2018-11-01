@@ -9,7 +9,7 @@ from marxs.utils import generate_test_photons
 from marxs.optics import OrderSelector
 
 
-def bend_gratings(conf, gas, r=None):
+def bend_gratings(conf, gratings, r=None):
     '''Bend gratings in a gas to follow the Rowland cirle
 
     Gratings are bend in one direction (the dispersion direction) only.
@@ -21,12 +21,10 @@ def bend_gratings(conf, gas, r=None):
     conf : dict
         Configuration values for Lynx. The parameters of the Rowland circle
         and the gratings are taken form there.
-    gas : `marxs.simulartor.BaseContainer` instance
-        Object that has individual gratings as elements
-        Code should be updated to accept a list of elements as a result
-        of e.g. elem_of_class().
+    gas : list
+        List of grating to be bend
     '''
-    for e in gas.elements:
+    for e in gratings:
         r_elem = np.linalg.norm(h2e(e.geometry['center'])) if r is None else r
 
         t, rot, z, s = decompose(e.geometry.pos4d)
@@ -102,7 +100,7 @@ class NumericalChirpFinder():
         return corr
 
 
-def chirp_gratings(gratings, optimizer):
+def chirp_gratings(gratings, optimizer, d):
     '''
     Dimensions of corr are hardcoded
     '''
@@ -114,8 +112,9 @@ def chirp_gratings(gratings, optimizer):
         corr = np.tile(corr[:, 0], (3, 1)).T
         ly = np.linalg.norm(grat.geometry['v_y'])
         lz = np.linalg.norm(grat.geometry['v_z'])
+        grat.fitted_d_corr = corr
         grat.spline = RectBivariateSpline(ly * uarray, lz * uarray,
-                                          0.0002 * corr,
+                                          d * corr,
                                           bbox=[-ly, ly, -lz, lz],
                                           kx=2, ky=2)
 

@@ -7,6 +7,7 @@ from marxs.base import SimulationSequenceElement
 from marxs.optics import GlobalEnergyFilter
 from marxs.optics.base import OpticalElement
 from marxs.simulator import ParallelCalculated, Parallel
+from marxs.math.utils import h2e
 
 
 from .load_csv import load_table2d, load_number
@@ -149,7 +150,7 @@ def facet_table(gas):
     facettab : `astropy.table.Table`
         Table with facet properties
     '''
-    facetpos = np.stack(gas.elem_pos)
+    facetpos = h2e(np.stack(gas.elem_pos))
     facetang = np.arctan2(facetpos[:, 2, 3], facetpos[:, 1, 3])
     facetrad = np.sqrt(facetpos[:, 1, 3]**2 + facetpos[:, 2, 3]**2)
     facetid = [e.id_num for e in gas.elements]

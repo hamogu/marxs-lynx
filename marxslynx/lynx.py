@@ -29,11 +29,11 @@ conf = {'inplanescatter': 2e-6,
         'grating_size': np.array([20., 50.]),
         'grating_frame': 2.,
         'grating_d': 2e-4,
-        'det_kwargs': {'theta': [3.1, 3.18],
-                       'd_element': 51.,
+        'det_kwargs': {'theta': [3.12, 3.182],
+                       'd_element': 16.884,
                        'elem_class': optics.FlatDetector,
-                       'elem_args': {'zoom': [1, 24.576, 12.288],
-                                     'pixsize': 0.024}},
+                       'elem_args': {'zoom': [1, 8.192, 8.192],
+                                     'pixsize': 0.016}},
     }
 
 
@@ -52,8 +52,10 @@ conf_5050['grating_size'] = np.array([50., 50.])
 
 conf_chirp = copy.copy(conf)
 conf_chirp['grating_size'] = np.array([80., 160.])
-conf_chrip['chirp_energy'] = 0.6
-conf_chrip['chirp_order'] = -5
+conf_chirp['chirp_energy'] = 0.6
+# Use of a non-integer order makes no sense physically
+# but is just a numerical tool to optimize at the blaze peak
+conf_chirp['chirp_order'] = -5.4
 
 class LynxGAS(ralfgrating.MeshGrid):
     def __init__(self, conf):
@@ -95,6 +97,8 @@ detcirc.loc_coos_name = ['detcirc_phi', 'detcirc_y']
 detcirc.detpix_name = ['detcircpix_x', 'detcircpix_y']
 
 flatdet = FlatDetector(zoom=[1, 1e5, 1e5])
+flatdet.loc_coos_name = ['detinf_x', 'detinf_y']
+flatdet.detpix_name = ['detinfpix_x', 'detinfpix_y']
 flatdet.display['shape'] = 'None'
 
 
@@ -115,13 +119,20 @@ class PerfectLynx(simulator.Sequence):
         detectors need different parameters. Placing this specific code in it's own
         function makes it easy to override for derived classes.
         '''
+        microcal = FlatDetector(zoom=[1, 50, 50])
+        microcal.loc_coos_name = ['microcal_x', 'microcal_y']
+        microcal.detpix_name = ['microcalpix_x', 'microcalpix_y']
+        proj2 = analysis.ProjectOntoPlane()
+        proj2.loc_coos_name = ['projcirc_y', 'projcirc_z']
         return [RowlandDetArray(conf),
                 analysis.ProjectOntoPlane(),
                 Propagator(distance=-1000),
                 detcirc,
+                proj2,
                 Propagator(distance=-1000),
                 flatdet,
-                FlatDetector(zoom=[1, 50, 50])]
+                Propagator(distance=-1000),
+                microcal]
 
     def post_process(self):
         self.KeepPos = simulator.KeepCol('pos')
@@ -137,4 +148,9 @@ class PerfectLynx(simulator.Sequence):
         super(PerfectLynx, self).__init__(elements=elem,
                                           postprocess_steps=self.post_process(),
                                           **kwargs)
-        if ('chirp_energy' in conf) and (
+        if ('chirp_energy' in conf) and ('chirp_order' in conf):
+            opt = NumericalChirpFinder(detcirc, self.elements[2].elements[0],
+                                       order=conf['chirp_order'],
+                                       energy=conf['chirp_energy'],
+                                       d=conf['grating_d'])
+            chirp_gratings(self.elements[2].elements, opt, conf['grating_d'])
