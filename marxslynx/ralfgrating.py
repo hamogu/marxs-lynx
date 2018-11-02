@@ -150,15 +150,17 @@ def facet_table(gas):
     facettab : `astropy.table.Table`
         Table with facet properties
     '''
-    facetpos = h2e(np.stack(gas.elem_pos))
-    facetang = np.arctan2(facetpos[:, 2, 3], facetpos[:, 1, 3])
-    facetrad = np.sqrt(facetpos[:, 1, 3]**2 + facetpos[:, 2, 3]**2)
+    facetpos = h2e(np.stack(gas.elem_pos)[:, :, 3])
+    facetang = np.arctan2(facetpos[:, 2], facetpos[:, 1])
+    facetrad = np.sqrt(facetpos[:, 1]**2 + facetpos[:, 2]**2)
     facetid = [e.id_num for e in gas.elements]
     facetgrooveang = [e.geometry['groove_angle'] for e in gas.elements]
     facetcoating = [e.order_selector.coating if hasattr(e.order_selector, 'coating') else '--' for e in gas.elements]
-    return Table([facetid, facetrad, facetang, facetgrooveang, facetcoating],
+    return Table([facetid, facetrad, facetang, facetgrooveang, facetcoating,
+                  facetpos[:, 0], facetpos[:, 1], facetpos[:, 2]],
                  names=['facet', 'facet_rad', 'facet_ang', 'facet_grooveang',
-                        'facet_coating'])
+                        'facet_coating',
+                        'facet_x', 'facet_y', 'facet_z'])
 
 
 class MeshGrid(ParallelCalculated, OpticalElement):
