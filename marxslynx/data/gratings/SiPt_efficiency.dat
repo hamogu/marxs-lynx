@@ -3,34 +3,34 @@
 # datatype:
 # - {name: lambda, unit: Angstrom, datatype: float32}
 # - {name: theta, unit: deg, datatype: float32}
-# - {name: o4, datatype: float32}
-# - {name: o3, datatype: float32}
-# - {name: o2, datatype: float32}
-# - {name: o1, datatype: float32}
-# - {name: o0, datatype: float32}
-# - {name: o-1, datatype: float32}
-# - {name: o-2, datatype: float32}
-# - {name: o-3, datatype: float32}
-# - {name: o-4, datatype: float32}
-# - {name: o-5, datatype: float32}
-# - {name: o-6, datatype: float32}
-# - {name: o-7, datatype: float32}
-# - {name: o-8, datatype: float32}
-# - {name: o-9, datatype: float32}
-# - {name: o-10, datatype: float32}
-# - {name: o-11, datatype: float32}
-# - {name: o-12, datatype: float32}
-# - {name: o-13, datatype: float32}
-# - {name: o-14, datatype: float32}
-# - {name: o-15, datatype: float32}
-# - {name: o-16, datatype: float32}
-# - {name: o-17, datatype: float32}
-# - {name: o-18, datatype: float32}
-# - {name: o-19, datatype: float32}
-# - {name: o-20, datatype: float32}
-# - {name: o-21, datatype: float32}
-# - {name: o-22, datatype: float32}
-# - {name: o-23, datatype: float32}
+# - {name: '4', datatype: float32}
+# - {name: '3', datatype: float32}
+# - {name: '2', datatype: float32}
+# - {name: '1', datatype: float32}
+# - {name: '0', datatype: float32}
+# - {name: '-1', datatype: float32}
+# - {name: '-2', datatype: float32}
+# - {name: '-3', datatype: float32}
+# - {name: '-4', datatype: float32}
+# - {name: '-5', datatype: float32}
+# - {name: '-6', datatype: float32}
+# - {name: '-7', datatype: float32}
+# - {name: '-8', datatype: float32}
+# - {name: '-9', datatype: float32}
+# - {name: '-10', datatype: float32}
+# - {name: '-11', datatype: float32}
+# - {name: '-12', datatype: float32}
+# - {name: '-13', datatype: float32}
+# - {name: '-14', datatype: float32}
+# - {name: '-15', datatype: float32}
+# - {name: '-16', datatype: float32}
+# - {name: '-17', datatype: float32}
+# - {name: '-18', datatype: float32}
+# - {name: '-19', datatype: float32}
+# - {name: '-20', datatype: float32}
+# - {name: '-21', datatype: float32}
+# - {name: '-22', datatype: float32}
+# - {name: '-23', datatype: float32}
 # meta: !!omap
 # - {ORIGFILE: ../inputdata/SiPt_5p7um_deep_20pct_dc_extended.xlsx}
 # - {author: converted by Hans Moritz Guenther}
@@ -39,7 +39,7 @@
 # - {comment: 'From: Ralf Heilmann <ralf@space.mit.edu>; Subject: Re: efficiencies for
 #     Lynx; Date: Tue, 17 Jan 2018 16:59:02 -0500'}
 # schema: astropy-2.0
-lambda theta o4 o3 o2 o1 o0 o-1 o-2 o-3 o-4 o-5 o-6 o-7 o-8 o-9 o-10 o-11 o-12 o-13 o-14 o-15 o-16 o-17 o-18 o-19 o-20 o-21 o-22 o-23
+lambda theta 4 3 2 1 0 -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 -11 -12 -13 -14 -15 -16 -17 -18 -19 -20 -21 -22 -23
 0.124 1.0 0.000908301 0.000629437 0.00598204 0.146715 0.580982 0.155501 0.00760677 0.00115964 0.00153777 0.00122572 0.00189198 0.000440917 0.000357772 0.000202352 0.000167312 0.000300391 0.000296835 0.00021058 0.000210531 1.09907e-05 4.34524e-05 4.13738e-05 8.60835e-05 0.000108104 3.49376e-05 2.16638e-09 1.5095e-05 3.08386e-05
 0.124 1.05 0.000673876 0.000795206 0.00566817 0.134166 0.609781 0.143126 0.00629022 0.000686865 0.00140346 0.00185789 0.000769966 0.000682267 0.000268082 0.000403325 0.000176975 0.000355836 8.18609e-05 0.000211345 2.94432e-05 3.8094e-05 2.71232e-06 6.54685e-05 0.000102505 5.4615e-05 4.53042e-05 1.63809e-05 1.76954e-06 2.29226e-05
 0.124 1.1 0.000521485 0.00101383 0.00586549 0.121397 0.63734 0.130495 0.00572025 0.000626535 0.00114398 0.00200695 6.01105e-05 0.001035 0.000335823 0.000235308 0.000203694 3.69831e-05 0.000205273 0.000160575 0.000126617 6.37333e-05 4.52958e-05 6.02546e-05 5.52045e-05 7.98534e-05 2.18173e-05 9.99493e-07 9.44913e-06 1.36413e-05
