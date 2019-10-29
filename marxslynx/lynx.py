@@ -1,5 +1,6 @@
 import copy
 from astropy.table import Table
+import astropy.units as u
 from astropy.utils.data import get_pkg_data_filename
 import numpy as np
 import transforms3d
@@ -8,8 +9,10 @@ from scipy.interpolate import interp1d
 from marxs import optics, simulator, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
 from marxs.math.geometry import Cylinder
-from marxs.optics import FlatDetector
+from marxs.optics import FlatDetector, OrderSelector
 from marxs.simulator import Propagator
+from marxs.missions.mitsnl.catgrating import CATL1L2Stack
+from marxs.design import tolerancing as tol
 
 from . import ralfgrating
 from .mirror import MetaShell, MetaShellAperture, metashellgeometry
@@ -20,6 +23,19 @@ filterdata = Table.read(get_pkg_data_filename('data/filtersqe.dat'),
                         format='ascii.ecsv')
 filterqe = optics.GlobalEnergyFilter(filterfunc=interp1d(filterdata['energy'] / 1000,
                                                          filterdata['Total_throughput']))
+
+l1_order_selector = OrderSelector(orderlist=np.array([-4, -3, -2, -1, 0, 1, 2, 3, 4]),
+                                  p=np.array([0.006, 0.0135, 0.022, 0.028, 0.861, 0.028, 0.022, 0.0135, 0.006]))
+'''Simple order selector for diffraction on L1.
+
+The numbers in the array are calculated for the 2018 Arcus gratings
+assuming the L1 structure is independent from the grating membrane itself
+(which is not true, but a valid first approximation.)
+For Lynx, we are using 50% deeper gratings, yet the L1 bars are only about
+half as thick. Until I have new predictions for the efficiency, I'll just
+apply a factor 0.75.
+'''
+
 conf = {'inplanescatter': 2e-6,
         'perpplanescatter': 2e-6,
         'blazeang': np.deg2rad(1.6),
@@ -28,12 +44,30 @@ conf = {'inplanescatter': 2e-6,
         'betafac': 4.4,
         'grating_size': np.array([20., 50.]),
         'grating_frame': 2.,
-        'grating_d': 2e-4,
         'det_kwargs': {'theta': [3.12, 3.182],
                        'd_element': 16.884,
                        'elem_class': optics.FlatDetector,
                        'elem_args': {'zoom': [1, 8.192, 8.192],
                                      'pixsize': 0.016}},
+        'gas_kwargs': {'parallel_spec': np.array([0., 1., 0., 0.]),
+                       'normal_spec': np.array([0, 0, 0, 1]),
+                       'x_range': [7e3, 1e4],
+                       'elem_class': CATL1L2Stack,
+                       'elem_args': {'d': 2e-4,
+                                     'order_selector': ralfgrating.order_selector_Si,
+                                     'l1_dims': {'bardepth': 5.7 * u.micrometer,
+                                                 'period': 0.005 * u.mm,
+                                                 'barwidth': 0.0005 * u.mm},
+                                     'l2_dims': {'bardepth': 0.5 * u.mm,
+                                                 'period': 0.966 * u.mm,
+                                                 'barwidth': 0.05 * u.mm},
+                                     # Set sigma to 0. Effectively disables this
+                                     # factor.
+                                     'qualityfactor': {'d': 200. * u.um,
+                                                       'sigma': 0 * u.um},
+                                     'l1_order_selector': l1_order_selector,
+                                     },
+                       },
     }
 
 
@@ -57,20 +91,20 @@ conf_chirp['chirp_energy'] = 0.6
 # but is just a numerical tool to optimize at the blaze peak
 conf_chirp['chirp_order'] = -5.4
 
+
 class LynxGAS(ralfgrating.MeshGrid):
     def __init__(self, conf):
-        gg = {'rowland': conf['rowland'],
-              'd_element': conf['grating_size'] + 2 * conf['grating_frame'],
-              'parallel_spec': np.array([0., 1., 0., 0.]),
-              'x_range': [7e3, 1e4],
-              'radius': [np.min(metashellgeometry['r_inner']),
-                         np.max(metashellgeometry['r_outer'])],
-              'normal_spec': np.array([0, 0, 0, 1]),
-              'elem_class': optics.CATGrating,
-              'elem_args': {'d': conf['grating_d'],
-                            'zoom': [1., conf['grating_size'][0] / 2., conf['grating_size'][1] / 2],
-                            'orientation':conf['blazemat'],
-                            'order_selector': ralfgrating.order_selector_Si}}
+        gg = conf['gas_kwargs']
+        # Add in / update keywords that are calculated based on other conf
+        # entries
+        gg['rowland'] = conf['rowland']
+        gg['d_element'] = conf['grating_size'] + 2 * conf['grating_frame']
+        gg['radius'] = [np.min(metashellgeometry['r_inner']),
+                        np.max(metashellgeometry['r_outer'])]
+        gg['elem_args']['zoom'] = [1.,
+                                   conf['grating_size'][0] / 2.,
+                                   conf['grating_size'][1] / 2.]
+        gg['elem_args']['orientation'] = conf['blazemat']
 
         super(LynxGAS, self).__init__(**gg)
 
@@ -109,7 +143,6 @@ class PerfectLynx(simulator.Sequence):
 
     def add_gas(self, conf):
         return [LynxGAS(conf),
-                ralfgrating.catsupport,
                 ralfgrating.catsupportbars]
 
     def add_detectors(self, conf):
@@ -152,5 +185,68 @@ class PerfectLynx(simulator.Sequence):
             opt = NumericalChirpFinder(detcirc, self.elements[2].elements[0],
                                        order=conf['chirp_order'],
                                        energy=conf['chirp_energy'],
-                                       d=conf['grating_d'])
-            chirp_gratings(self.elements[2].elements, opt, conf['grating_d'])
+                                       d=conf['gas_kwargs']['elem_args']['d'])
+            chirp_gratings(self.elements[2].elements, opt,
+                           conf['gas_kwargs']['elem_args']['d'])
+
+
+class Lynx(PerfectLynx):
+    def __init__(self, conf=conf, **kwargs):
+        super().__init__(conf=conf, **kwargs)
+        for row in conf['alignmentbudget']:
+            elem = self.elements_of_class(row[0])
+            if row[1] == 'global':
+                tol.moveglobal(elem, *row[3])
+            elif row[1] == 'individual':
+                tol.wiggle(elem, *row[3])
+            else:
+                raise NotImplementedError('Alignment error {} not implemented'.format(row[1]))
+
+
+def reformat_errorbudget(budget, globalfac=0.8):
+    '''Reformat the error budget
+
+    Last, global misalignment (that's not random) must be
+    scaled in some way. Here, I use 0.8 sigma, which is the
+    mean absolute deviation for a Gaussian.
+
+    Parameters
+    ----------
+    budget : list
+        See reference implementation for list format
+    globalfac : ``None`` or float
+        Factor to apply for global tolerances. A "global" tolerance is drawn
+        only once per simulation. In contrast, for "individual" tolerances
+        many draws are done and thus the resulting layout actually
+        represents a distribution. For a "global" tolerance, the result hinges
+        essentially on a single random draw. If this is set to ``None``,
+        misalignments are drawn statistically. Instead, the tolerances can be
+        scaled determinisitically, e.g. by "0.8 sigma" (the mean absolute
+        deviation for a Gaussian distribution).
+    '''
+    for row in budget:
+        tol = np.array(row[2], dtype=float)
+        if row[1] == 'global':
+            if globalfac is not None:
+                tol *= globalfac
+            else:
+                tol *= np.random.randn(len(tol))
+
+        row[3] = tol
+
+
+align_requirement_in = [
+    [LynxGAS, 'global', [1, 0.5, .5,
+                         np.deg2rad(0.01), np.deg2rad(0.01), np.deg2rad(0.01)],
+     None, 'CAT structure to mirrors'],
+    [LynxGAS, 'individual', [.1, .25, .25,
+                             np.deg2rad(0.1), np.deg2rad(0.2), np.deg2rad(0.1)],
+     None, 'individual CAT gratings structure'],
+    [RowlandDetArray, 'global', [0.1, 1., 3.,
+                                 np.deg2rad(0.5), np.deg2rad(1), np.deg2rad(.01)],
+     None, 'Camera to front assembly']]
+
+align_requirement = copy.deepcopy(align_requirement_in)
+reformat_errorbudget(align_requirement)
+
+conf['alignmentbudget'] = align_requirement

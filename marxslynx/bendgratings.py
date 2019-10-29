@@ -35,6 +35,7 @@ def bend_gratings(conf, gratings, r=None):
                       'phi_lim': [-d_phi, d_phi]})
         c._geometry = e.geometry._geometry
         e.geometry = c
+        e.display['shape'] = 'surface'
 
 
 class NumericalChirpFinder():
