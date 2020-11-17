@@ -23,6 +23,7 @@
 #     \ that.\n\nRandy\n\n"}
 # - {author: Hans Moritz Guenther}
 # - {orig_author: Randall McEntaffer}
+# - {Note: The original file only included data to 2.1 keV. I expented is with arbitrary numbers to avoid interpolation errors.}
 # schema: astropy-2.0
 energy AlOxide Al Kapton "95% mesh" "Detector QE" Total_throughput
 100 0.70239 0.41799 0.80062 0.95 0.8888382 0.198480097
@@ -526,3 +527,4 @@ energy AlOxide Al Kapton "95% mesh" "Detector QE" Total_throughput
 2092 0.99459 0.98368 0.9978 0.95 0.9911277 0.919167476
 2096 0.99462 0.98376 0.99781 0.95 0.9911277 0.919279169
 2100 0.99464 0.98384 0.99782 0.95 0.9911277 0.919381626
+10000 1. 1. 1. 1. 1. 1.

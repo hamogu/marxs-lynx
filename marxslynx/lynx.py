@@ -1,3 +1,17 @@
+''' Lynx telescope and instrument definition.
+
+Since some aspects of the telescope and not well-defined yet, there are some rough edges.
+
+Below is the running list of input data that could be improved with no or little code changes:
+
+- QE (and entrance filters if any are present) for zero-order instruments missing
+- Filter curves and QE for XGS detectors only defined to 2.1 keV. Just added arbitrary numbers
+  after that to avoid overflow errors in the interpolation.
+- Check mirror model. Does is use the energy dependence for different shells?
+- Update L1 diffraction efficiencies. Note that transmission through L1 is currently handled separately.
+- Update L2 dimensions.
+'''
+
 import copy
 from astropy.table import Table
 import astropy.units as u
@@ -9,7 +23,7 @@ from scipy.interpolate import interp1d
 from marxs import optics, simulator, design, analysis
 from marxs.design.rowland import design_tilted_torus, RowlandTorus
 from marxs.math.geometry import Cylinder
-from marxs.optics import FlatDetector, OrderSelector
+from marxs.optics import FlatDetector, OrderSelector, CATGrating
 from marxs.simulator import Propagator
 from marxs.missions.mitsnl.catgrating import CATL1L2Stack
 from marxs.design import tolerancing as tol
@@ -32,8 +46,7 @@ The numbers in the array are calculated for the 2018 Arcus gratings
 assuming the L1 structure is independent from the grating membrane itself
 (which is not true, but a valid first approximation.)
 For Lynx, we are using 50% deeper gratings, yet the L1 bars are only about
-half as thick. Until I have new predictions for the efficiency, I'll just
-apply a factor 0.75.
+half as thick. Need better numbers for that.
 '''
 
 conf = {'inplanescatter': 2e-6,
@@ -182,12 +195,12 @@ class PerfectLynx(simulator.Sequence):
                                           postprocess_steps=self.post_process(),
                                           **kwargs)
         if ('chirp_energy' in conf) and ('chirp_order' in conf):
-            opt = NumericalChirpFinder(detcirc, self.elements[2].elements[0],
+            gratings = self.elements_of_class(CATGrating, subclass_ok=False)
+            opt = NumericalChirpFinder(detcirc, gratings[0],
                                        order=conf['chirp_order'],
                                        energy=conf['chirp_energy'],
                                        d=conf['gas_kwargs']['elem_args']['d'])
-            chirp_gratings(self.elements[2].elements, opt,
-                           conf['gas_kwargs']['elem_args']['d'])
+            chirp_gratings(gratings, opt, conf['gas_kwargs']['elem_args']['d'])
 
 
 class Lynx(PerfectLynx):
