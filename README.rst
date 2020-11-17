@@ -11,4 +11,4 @@ MARXS is a ray-trace code to simulate X-ray missions. In particular, astronomica
 License
 -------
 
-This project is Copyright (c) Hans Mortiz Guenther / MIT and licensed under the terms of the GNU GPL v3+ license. See the licenses folder for more information.
+This project is Copyright (c) Hans Moritz Guenther / MIT and licensed under the terms of the GNU GPL v3+ license. See the licenses folder for more information.
