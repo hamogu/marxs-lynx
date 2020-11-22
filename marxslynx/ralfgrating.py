@@ -1,12 +1,10 @@
 import numpy as np
 from astropy.utils.data import get_pkg_data_filename as gpdf
 from astropy.table import Table
-from marxs.optics import GlobalEnergyFilter
 from marxs.optics.base import OpticalElement
 from marxs.simulator import ParallelCalculated
 from marxs.math.utils import h2e
 from marxs.missions.mitsnl.catgrating import InterpolateEfficiencyTable as IET
-from marxs.missions.mitsnl.catgrating import QualityFactor, catsupportbars
 
 order_selector_Si = IET(gpdf('data/gratings/Si_efficiency.dat',
                              package='marxslynx'))

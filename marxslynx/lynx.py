@@ -25,7 +25,7 @@ from marxs.design.rowland import design_tilted_torus, RowlandTorus
 from marxs.math.geometry import Cylinder
 from marxs.optics import FlatDetector, OrderSelector, CATGrating
 from marxs.simulator import Propagator
-from marxs.missions.mitsnl.catgrating import CATL1L2Stack
+from marxs.missions.mitsnl.catgrating import CATL1L2Stack, catsupportbars
 from marxs.design import tolerancing as tol
 
 from . import ralfgrating
@@ -49,8 +49,8 @@ For Lynx, we are using 50% deeper gratings, yet the L1 bars are only about
 half as thick. Need better numbers for that.
 '''
 
-conf = {'inplanescatter': 2e-6,
-        'perpplanescatter': 2e-6,
+conf = {'inplanescatter': 2e-6 * u.rad,
+        'perpplanescatter': 2e-6 * u.rad,
         'blazeang': np.deg2rad(1.6),
         'focallength': 10000.,
         'alphafac': 2.2,
@@ -156,7 +156,7 @@ class PerfectLynx(simulator.Sequence):
 
     def add_gas(self, conf):
         return [LynxGAS(conf),
-                ralfgrating.catsupportbars]
+                catsupportbars]
 
     def add_detectors(self, conf):
         '''Add detectors to the element list
@@ -196,7 +196,7 @@ class PerfectLynx(simulator.Sequence):
                                           **kwargs)
         if ('chirp_energy' in conf) and ('chirp_order' in conf):
             gratings = self.elements_of_class(CATGrating, subclass_ok=False)
-            opt = NumericalChirpFinder(detcirc, gratings[0],
+            opt = NumericalChirpFinder(detcirc,
                                        order=conf['chirp_order'],
                                        energy=conf['chirp_energy'],
                                        d=conf['gas_kwargs']['elem_args']['d'])
