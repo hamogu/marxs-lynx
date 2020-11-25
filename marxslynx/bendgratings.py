@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.interpolate import RectBivariateSpline
-from transforms3d.affines import decompose
+from transforms3d.affines import decompose, decompose44
 
 from marxs.math.geometry import Cylinder
 from marxs.math.utils import h2e, e2h, norm_vector
@@ -9,12 +9,12 @@ from marxs.utils import generate_test_photons
 from marxs.optics import OrderSelector
 
 
-def bend_gratings(conf, gratings, r=None):
+def bend_gratings(gratings, r=None):
     '''Bend gratings in a gas to follow the Rowland cirle
 
     Gratings are bend in one direction (the dispersion direction) only.
 
-    Assumes that the focal point is at the origin of the coordinate system!
+    Assumes that the central ray always goes to the correct position!
 
     Parameters
     ----------
@@ -28,27 +28,58 @@ def bend_gratings(conf, gratings, r=None):
         r_elem = np.linalg.norm(h2e(e.geometry['center'])) if r is None else r
 
         t, rot, z, s = decompose(e.geometry.pos4d)
-        d_phi = np.arctan(conf['grating_size'][1] / 2 / r_elem)
+        d_phi = np.arctan(z[1] / r_elem)
         c = Cylinder({'position': t - r_elem * h2e(e.geometry['e_x']),
                       'orientation': rot,
-                      'zoom': [r_elem, r_elem, conf['grating_size'][0] / 2],
+                      'zoom': [r_elem, r_elem, z[2]],
                       'phi_lim': [-d_phi, d_phi]})
         c._geometry = e.geometry._geometry
         e.geometry = c
         e.display['shape'] = 'surface'
+        for e1 in e.elements:
+            # can't be the same geometry, because groove_angle is part of _geometry and that's different
+            # Maybe need to get that out again and make the geometry strictly the geometry
+            # But for now, make a new cylinder of each of them
+            # Even now, not sure that's needed, since intersect it run by FlatStack
+            c = Cylinder({'position': t - r_elem * h2e(e.geometry['e_x']),
+                          'orientation': rot,
+                          'zoom': [r_elem, r_elem, z[2]],
+                          'phi_lim': [-d_phi, d_phi]})
+            c._geometry = e1.geometry._geometry
+            e1.geometry = c
+            e1.display['shape'] = 'surface'
 
 
 class NumericalChirpFinder():
+    '''Optimizer to determine optimal chirp by ray-tracing individual rays
+
+    This object passes a ray through the center of a grating with the specified energy and
+    diffraction order. It records the position of this center ray. Then, rays are passed through the grating at different positions. For each position, the grating period is optimized numerically, such that these test rays hit the same position as the center ray, when the object is called is called.
+
+    The purpose of wrapping this in an object (as opposed to a simple function) is that certain settings such as energy and order of diffraction are set when the oject is initialized
+
+
+
+    Assumes that the focal point (=position of the 0th order) is at the
+    origin of the coordinate system.
+
+    Parameters
+    ----------
+    detector : marxs element
+        Mamrx
+    colname : string
+        Name of column in photon list that the detector ``detector`` writes in
+    '''
     uv = [0, 0]
 
-    def __init__(self, detector, grat, order, energy, d=0.0002):
+    def __init__(self, detector, order, energy, d=0.0002,
+                 colname='detcirc_phi'):
         self.photon = generate_test_photons(1)
         self.detector = detector
-        self.grat = grat
         self.energy = energy
         self.order = order
         self.base_d = d
-        self.calc_goal()
+        self.colname = colname
 
     def set_grat(self, grat):
         self.grat = grat
@@ -65,14 +96,18 @@ class NumericalChirpFinder():
         self.grat._d = self.base_d
         self.set_uv([0., 0.])
         self.run_photon()
-        self.goal = self.photon['detcirc_phi'][0]
+        self.goal = self.photon[self.colname][0]
+
+    def posongrat(self):
+        pos = h2e(self.grat.geometry['center'] +
+                  self.uv[0] * self.grat.geometry['v_y'] +
+                  self.uv[1] * self.grat.geometry['v_z'])
+        return pos
 
     def init_photon(self):
-        posongrat = h2e(self.grat.geometry['center'] +
-                        self.uv[0] * self.grat.geometry['v_y'] +
-                        self.uv[1] * self.grat.geometry['v_z'])
-        self.pos = e2h(1.1 * posongrat, 1)
-        self.dir = norm_vector(- e2h(posongrat.reshape(1, 3), 0))
+        pos = self.posongrat()
+        self.pos = e2h(1.1 * pos, 1)
+        self.dir = norm_vector(- e2h(pos.reshape(1, 3), 0))
         self.reset_photon()
 
     def reset_photon(self):
@@ -88,7 +123,7 @@ class NumericalChirpFinder():
     def optimize_func(self, d):
         self.grat._d = d * self.base_d
         self.run_photon()
-        return np.abs(self.photon['detcirc_phi'][0] - self.goal)
+        return np.abs(self.photon[self.colname][0] - self.goal)
 
     def correction_on_d(self, uarray=np.array([-.999, 0, .999]),
                         varray=np.array([0])):
@@ -100,16 +135,27 @@ class NumericalChirpFinder():
                                              bracket=(.99, 1., 1.01)).x
         return corr
 
+    def __call__(self, grat, *args, **kwargs):
+        self.set_grat(grat)
+        return self.correction_on_d(*args, **kwargs)
 
-def chirp_gratings(gratings, optimizer, d):
-    '''
-    Dimensions of corr are hardcoded
-    '''
-    uarray = np.array([-.999, 0, .999])
-    varray = np.array([0])
+
+class BendNumericalChirpFinder(NumericalChirpFinder):
+    def posongrat(self):
+        trans, rot, zoom, shear = decompose44(self.grat.geometry.pos4d)
+        p_lim = self.grat.geometry.phi_limits
+        p_center = np.mean(p_lim)
+        # Not accounting for 2 pi wrap and crazy stuff
+        p_half = (p_lim[1] - p_lim[0]) / 2
+        pos = h2e(self.grat.geometry.parametric_surface([p_center + self.uv[0] * p_half],
+                                                        [self.uv[1] * zoom[2]]))
+        return pos[0, 0, :]
+
+
+def chirp_gratings(gratings, optimizer, d,
+                   uarray=np.array([-.999, 0, .999]), varray=np.array([0])):
     for grat in gratings:
-        optimizer.set_grat(grat)
-        corr = optimizer.correction_on_d(uarray, varray)
+        corr = optimizer(grat, uarray, varray)
         corr = np.tile(corr[:, 0], (3, 1)).T
         ly = np.linalg.norm(grat.geometry['v_y'])
         lz = np.linalg.norm(grat.geometry['v_z'])
