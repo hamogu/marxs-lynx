@@ -203,6 +203,15 @@ class PerfectLynx(simulator.Sequence):
             chirp_gratings(gratings, opt, conf['gas_kwargs']['elem_args']['d'])
 
 
+class LynxForPlot(PerfectLynx):
+    def add_detectors(self, conf):
+        microcal = FlatDetector(zoom=[1, 50, 50])
+        microcal.loc_coos_name = ['microcal_x', 'microcal_y']
+        microcal.detpix_name = ['microcalpix_x', 'microcalpix_y']
+        return [RowlandDetArray(conf),
+                microcal]
+
+
 class Lynx(PerfectLynx):
     def __init__(self, conf=conf, **kwargs):
         super().__init__(conf=conf, **kwargs)
